@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Complex Viz</title>
+</head>
+<body>
+  <input type="text" id="formula" value="f(x) = x^2 - 10" /><br />
+  <canvas width="601" height="601"></canvas>
+  <p>
+    Try these:
+    <ul>
+      <li>f(x) = x^2 - 10 <em>(field lines)</em></li>
+      <li>f(x) = x^2 + 10 <em>(contrast to the above)</em></li>
+      <li>f(x) = x*i <em>(shows the classic rotation)</em></li>
+      <li>f(x) = x^5</li>
+      <li>f(x) = 5^x</li>
+      <li>f(x) = (x/10)^-5</li>
+      <li>f(x) = sign(x)*5 <em>("black hole")</em></li>
+      <li>f(x) = abs(x)</li>
+      <li>f(x) = sqrt(x)</li>
+      <li>f(x) = sin(x)</li>
+      <li>f(x) = x^i</li>
+      <li>f(x) = i^x</li>
+    </ul>
+  </p>
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/mathjs/0.25.0/math.js" type="text/javascript"></script>
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.js" type="text/javascript"></script>
+  <script type="text/javascript">
+    $(function () {
+      var settings = {
+        frameCount: 10,
+        addEachFrame: 600,
+        lineMode: 'unit_source',
+        drawAxes: true,
+      };
+
+      var $formula = $('#formula').keyup(parse).change(parse).bind("paste", parse);
+      parse();
+      function parse() {
+        var f = math.parse($formula.val()).compile(math).eval();
+        if (typeof f == "function") {
+          settings.f = f;
+        }
+      };
+
+      var canvas = $('canvas')[0];
+      var w = canvas.width;
+      var h = canvas.height;
+
+      var ctx = canvas.getContext('2d');
+
+      var lines = [];
+
+      function draw() {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
+        ctx.fillRect(0, 0, w, h);
+
+        for (var i = 0; i < lines.length; i++) {
+          var frame = lines[i].frames.shift();
+
+          ctx.strokeStyle = "rgb(255, 255, 255)";
+          ctx.beginPath();
+          ctx.moveTo(w/2 + frame.start.re * w/20, h/2 + frame.start.im * h/20);
+          ctx.lineTo(w/2 + frame.end.re * w/20, h/2 + frame.end.im * h/20);
+          ctx.stroke();
+        }
+
+        if (settings.drawAxes) {
+          ctx.strokeStyle = "rgb(255, 0, 0)";
+          ctx.beginPath();
+          ctx.moveTo(w/2, 0);
+          ctx.lineTo(w/2, h);
+          ctx.moveTo(0, h/2);
+          ctx.lineTo(w, h/2);
+          for (var y = -10; y <= 10; y++) {
+            ctx.moveTo(w/2, h/2 + y * h/20);
+            ctx.lineTo(w/2 + 5, h/2 + y * h/20);
+          }
+          for (var x = -10; x <= 10; x++) {
+            ctx.moveTo(w/2 + x * w/20, h/2);
+            ctx.lineTo(w/2 + x * w/20, h/2 + 5);
+          }
+          ctx.stroke();
+        }
+      }
+
+      function move() {
+        var i = 0;
+        while (i < lines.length) {
+          var line = lines[i];
+          if (line.frames.length == 0) {
+            lines.splice(i, 1);
+          } else {
+            i++;
+          }
+        }
+
+        for (var l = 0; l < settings.addEachFrame; l++) {
+          var line = {
+            frames: []
+          };
+
+          var src = math.complex(
+            Math.random() * 22 - 11,
+            Math.random() * 22 - 11);
+
+          var dest = settings.f(src);
+
+          var diff = math.subtract(dest, src);
+          if (math.abs(diff) > 1) {
+            switch (settings.lineMode) {
+              case 'unit_source':
+                diff = math.divide(diff, math.abs(diff));
+                dest = math.add(src, diff);
+                break;
+              case 'unit_destination':
+                diff = math.divide(diff, math.abs(diff));
+                src = math.subtract(dest, diff);
+                break;
+            }
+          }
+
+          for (var frame = 0; frame < settings.frameCount; frame++) {
+            var startPortion = (frame / (settings.frameCount + 1));
+            var endPortion = ((frame + 1) / (settings.frameCount + 1));
+
+            var start = math.add(math.multiply(startPortion, diff), src);
+            var end = math.add(math.multiply(endPortion, diff), src);
+
+            line.frames.push({ start: start, end: end });
+          }
+
+          lines.push(line);
+        }
+      }
+
+      function frame() {
+        try {
+          move();
+          draw();
+        } catch(e) {
+        }
+        window.requestAnimationFrame(frame);
+      }
+
+      window.requestAnimationFrame(frame);
+    });
+  </script>
+</body>
+</html>
